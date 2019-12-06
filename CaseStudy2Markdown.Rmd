@@ -32,7 +32,7 @@ theme_set(theme_excel())
 As a company that specializes in Talent Management we have been assigned in Identifying the top tree factors that lead to employee Attrition/Turnover.
 Additionally we have been tasked with creating a model that predicts Attrition as well as model that predicts Monthly Income for the corporations employees.
 
-Youtube: https://youtu.be/k0ob1JmyLf4
+Youtube: https://youtu.be/DW1yUcgZAMY
 
 
 #Reading and tidying datasets
