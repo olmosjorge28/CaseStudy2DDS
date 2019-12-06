@@ -1,0 +1,685 @@
+---
+title: "CaseStudy2Markdown"
+author: "Jorge Olmos"
+date: "12/5/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(tm)
+library(tidyr)
+library(dplyr)
+library(tidyverse)
+library(e1071)
+library(caret)
+library(ggplot2)
+library(kableExtra)
+library(class)
+library(modelr)
+library(GGally)
+library(corrplot)
+library(readxl)
+
+```
+
+##Introduction
+
+As a company that specializes in Talent Management we have been assigned in Identifying the top tree factors that lead to employee Attrition/Turnover.
+Additionally we have been tasked with creating a model that predicts Attrition as well as model that predicts Monthly Income for the corporations employees.
+
+
+#Reading and tidying datasets
+
+
+## Reading in training data set
+
+```{r, include=TRUE}
+training_data = read.csv("CaseStudy2-data.csv", header=TRUE);
+```
+
+
+## Reading in test data set for attrition 
+
+```{r, include=TRUE}
+test_attrition_data = read.csv("CaseStudy2CompSet No Attrition.csv", header=TRUE)
+
+
+```
+
+
+
+
+##Reading Test data set for Monthly Income
+
+
+```{r, include=TRUE}
+test_salary_data = read_excel('CaseStudy2CompSet No Salary.xlsx')
+
+```
+
+
+##Removing unnecessary columns from training set and setting all categorial to be factors
+
+```{r, include=TRUE}
+training_data <- training_data %>% select(-one_of(c("Over18","StandardHours","EmployeeNumber","EmployeeCount")))
+training_data$JobInvolvement <- as.factor(training_data$JobInvolvement)
+training_data$JobLevel <- as.factor(training_data$JobLevel)
+training_data$JobSatisfaction <- as.factor(training_data$JobSatisfaction)
+training_data$PerformanceRating <- as.factor(training_data$PerformanceRating)
+training_data$RelationshipSatisfaction <- as.factor(training_data$RelationshipSatisfaction)
+training_data$StockOptionLevel <- as.factor(training_data$StockOptionLevel)
+training_data$TrainingTimesLastYear <- as.factor(training_data$TrainingTimesLastYear)
+training_data$WorkLifeBalance <- as.factor(training_data$WorkLifeBalance)
+training_data$Education <- as.factor(training_data$Education)
+training_data$EnvironmentSatisfaction <- as.factor(training_data$EnvironmentSatisfaction)
+
+
+test_attrition_data <- test_attrition_data %>% select(-one_of(c("Over18","StandardHours","EmployeeNumber","EmployeeCount")))
+test_attrition_data$JobInvolvement <- as.factor(test_attrition_data$JobInvolvement)
+test_attrition_data$JobLevel <- as.factor(test_attrition_data$JobLevel)
+test_attrition_data$JobSatisfaction <- as.factor(test_attrition_data$JobSatisfaction)
+test_attrition_data$PerformanceRating <- as.factor(test_attrition_data$PerformanceRating)
+test_attrition_data$RelationshipSatisfaction <- as.factor(test_attrition_data$RelationshipSatisfaction)
+test_attrition_data$StockOptionLevel <- as.factor(test_attrition_data$StockOptionLevel)
+test_attrition_data$TrainingTimesLastYear <- as.factor(test_attrition_data$TrainingTimesLastYear)
+test_attrition_data$WorkLifeBalance <- as.factor(test_attrition_data$WorkLifeBalance)
+test_attrition_data$Education <- as.factor(test_attrition_data$Education)
+test_attrition_data$EnvironmentSatisfaction <- as.factor(test_attrition_data$EnvironmentSatisfaction)
+
+test_salary_data <- test_salary_data %>% select(-one_of(c("Over18","StandardHours","EmployeeNumber","EmployeeCount")))
+test_salary_data$JobInvolvement <- as.factor(test_salary_data$JobInvolvement)
+test_salary_data$JobLevel <- as.factor(test_salary_data$JobLevel)
+test_salary_data$JobSatisfaction <- as.factor(test_salary_data$JobSatisfaction)
+test_salary_data$PerformanceRating <- as.factor(test_salary_data$PerformanceRating)
+test_salary_data$RelationshipSatisfaction <- as.factor(test_salary_data$RelationshipSatisfaction)
+test_salary_data$StockOptionLevel <- as.factor(test_salary_data$StockOptionLevel)
+test_salary_data$TrainingTimesLastYear <- as.factor(test_salary_data$TrainingTimesLastYear)
+test_salary_data$WorkLifeBalance <- as.factor(test_salary_data$WorkLifeBalance)
+test_salary_data$Education <- as.factor(test_salary_data$Education)
+test_salary_data$EnvironmentSatisfaction <- as.factor(test_salary_data$EnvironmentSatisfaction)
+
+
+
+```
+
+
+##Training data EDA
+
+# Attrition By Department
+```{r, include=TRUE}
+
+grouped_by_department <- training_data %>% count(Department,Attrition)
+reshape(grouped_by_department, idvar=c("Attrition","n"), timevar="Department", direction="wide")
+spread(grouped_by_department, Attrition, n)  %>% mutate(sum = No+Yes) %>% mutate(attrition_pct = Yes/sum)  %>% ggplot(aes(Department,attrition_pct)) + geom_col()
+
+```
+
+
+## Attrition by Age
+
+There seems to be a quadratic trend, there's a high level of attriction in late teens and early 20s. It levels off in the 30s, and starts picking back up in the 50s
+
+
+```{r, include=TRUE}
+grouped_by_age <- training_data %>% count(Age,Attrition)
+spread(grouped_by_age, Attrition, n)  %>% mutate(sum = No+Yes) %>% mutate(attrition_pct = Yes/sum) %>% ggplot(aes(x = Age, y = attrition_pct)) + geom_point()
+
+```
+
+
+
+##Attrition by JobSatisfaction
+
+Seems to be a very strong correlation between JobSatisfaction and attrition rate, with the greater job satisfaction the better less the likelhood for attrition.
+
+
+```{r, include=TRUE}
+group_by_jobSatisfaction <- training_data %>% count(JobSatisfaction,Attrition)
+spread(group_by_jobSatisfaction, Attrition, n)  %>% mutate(sum = No+Yes) %>% mutate(attrition_pct = Yes/sum) %>% ggplot(aes(x = JobSatisfaction, y = attrition_pct)) + geom_point()
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+
+##Attrition by total working years
+
+Similar to age it seems that there is less likelihood 
+
+```{r, include=TRUE}
+group_by_total_working_years <- training_data %>% count(TotalWorkingYears,Attrition)
+spread(group_by_total_working_years, Attrition, n)  %>% mutate(sum = No+Yes) %>% mutate(attrition_pct = Yes/sum) %>% ggplot(aes(x = TotalWorkingYears, y = attrition_pct)) + geom_point()
+```
+
+
+
+
+
+##Attrition by Job Role
+Sales representative appear to have a much higher attrition rate
+
+```{r, include=TRUE}
+group_by_job_role <- training_data %>% count(JobRole,Attrition)
+spread(group_by_job_role, Attrition, n)  %>% mutate(sum = No+Yes) %>% mutate(attrition_pct = Yes/sum) %>% ggplot(aes(JobRole,attrition_pct)) + geom_col()
+```
+
+
+##Attrition by PercentSalaryHike
+There's a very small correlation between percent salary hike and attrition
+
+```{r, include=TRUE}
+group_by_PercentSalaryHike <- training_data %>% count(PercentSalaryHike,Attrition)
+spread(group_by_PercentSalaryHike, Attrition, n)  %>% mutate(sum = No+Yes) %>% mutate(attrition_pct = Yes/sum) %>% ggplot(aes(x = PercentSalaryHike, y = attrition_pct)) + geom_point()
+```
+
+
+
+
+##Attrition by hourly rate
+Doesn't appear to be any real correlation between hourly rate and attrition
+```{r, include=TRUE}
+group_by_HourlyRate<- training_data %>% count(HourlyRate,Attrition)
+spread(group_by_HourlyRate, Attrition, n)  %>% mutate(sum = No+Yes) %>% mutate(attrition_pct = Yes/sum) %>% ggplot(aes(x = HourlyRate, y = attrition_pct)) + geom_point()
+```
+
+
+
+##Attrition by OverTime
+Working overtime appears to have a significant impact on attrition rate
+
+```{r, include=TRUE}
+group_by_OverTime<- training_data %>% count(OverTime,Attrition)
+spread(group_by_OverTime, Attrition, n)  %>% mutate(sum = No+Yes) %>% mutate(attrition_pct = Yes/sum) %>% ggplot(aes(OverTime,attrition_pct)) + geom_col()
+```
+
+
+##Choosing to test Bayes models with factor that had the most impact on attrtion Age, Job Satisfaction, Totalworkinyears, Job Role, and Hourly Rate
+
+Models is 86% accurate but low on specificity
+```{r, include=TRUE}
+
+set.seed(4)
+trainIndices = sample(seq(1:length(training_data$Age)),round(.7*length(training_data$Age)))
+trainEmployeeData = training_data[trainIndices,]
+testEmployeeData = training_data[-trainIndices,]
+model = naiveBayes(trainEmployeeData[,c("Age", "JobSatisfaction","TotalWorkingYears")],factor(trainEmployeeData$Attrition, labels = c("No", "Yes")))
+CM = confusionMatrix(table(factor(testEmployeeData$Attrition, labels = c("No", "Yes")),predict(model,testEmployeeData[,c("Age", "JobSatisfaction","TotalWorkingYears")])))
+CM
+
+
+
+set.seed(4)
+trainIndices = sample(seq(1:length(training_data$Age)),round(.7*length(training_data$Age)))
+trainEmployeeData = training_data[trainIndices,]
+testEmployeeData = training_data[-trainIndices,]
+model = naiveBayes(trainEmployeeData[,c("Age", "JobSatisfaction","YearsWithCurrManager")],factor(trainEmployeeData$Attrition, labels = c("No", "Yes")))
+CM = confusionMatrix(table(factor(testEmployeeData$Attrition, labels = c("No", "Yes")),predict(model,testEmployeeData[,c("Age", "JobSatisfaction","YearsWithCurrManager")])))
+CM
+
+
+set.seed(4)
+trainIndices = sample(seq(1:length(training_data$Age)),round(.7*length(training_data$Age)))
+trainEmployeeData = training_data[trainIndices,]
+testEmployeeData = training_data[-trainIndices,]
+model = naiveBayes(trainEmployeeData[,c("Age","WorkLifeBalance","JobRole")],factor(trainEmployeeData$Attrition, labels = c("No", "Yes")))
+CM = confusionMatrix(table(factor(testEmployeeData$Attrition, labels = c("No", "Yes")),predict(model,testEmployeeData[,c("Age","WorkLifeBalance","JobRole")])))
+CM
+
+
+set.seed(4)
+trainIndices = sample(seq(1:length(training_data$Age)),round(.7*length(training_data$Age)))
+trainEmployeeData = training_data[trainIndices,]
+testEmployeeData = training_data[-trainIndices,]
+model = naiveBayes(trainEmployeeData[,c("Age","JobRole")],factor(trainEmployeeData$Attrition, labels = c("No", "Yes")))
+CM = confusionMatrix(table(factor(testEmployeeData$Attrition, labels = c("No", "Yes")),predict(model,testEmployeeData[,c("Age","JobRole")])))
+CM
+
+
+set.seed(7)
+trainIndices = sample(seq(1:length(training_data$Age)),round(.7*length(training_data$Age)))
+trainEmployeeData = training_data[trainIndices,]
+testEmployeeData = training_data[-trainIndices,]
+model = naiveBayes(trainEmployeeData[,c("Age","JobRole","JobSatisfaction")],factor(trainEmployeeData$Attrition, labels = c("No", "Yes")))
+CM = confusionMatrix(table(factor(testEmployeeData$Attrition, labels = c("No", "Yes")),predict(model,testEmployeeData[,c("Age","JobRole","JobSatisfaction")])))
+CM
+
+
+
+AccHolder = numeric(100)
+SensHolder = numeric(100)
+SpecHolder = numeric(100)
+
+
+for (seed in 1:100)
+{
+
+set.seed(seed)
+trainIndices = sample(seq(1:length(training_data$Age)),round(.7*length(training_data$Age)))
+trainEmployeeData = training_data[trainIndices,]
+testEmployeeData = training_data[-trainIndices,]
+model = naiveBayes(trainEmployeeData[,c("Age","JobRole","JobSatisfaction")],factor(trainEmployeeData$Attrition, labels = c("No", "Yes")))
+CM = confusionMatrix(table(factor(testEmployeeData$Attrition, labels = c("No", "Yes")),predict(model,testEmployeeData[,c("Age","JobRole","JobSatisfaction")])))
+CM
+AccHolder[seed] = CM$overall[1]
+SensHolder[seed] = CM$byClass[1]
+SpecHolder[seed] = CM$byClass[2]
+
+}
+
+mean(AccHolder)
+#Standard Error of the Mean
+sd(AccHolder)/sqrt(100) 
+mean(SensHolder)
+#Standard Error of the Mean
+sd(SensHolder)/sqrt(100) 
+mean(SpecHolder)
+#Standard Error of the Mean
+sd(SensHolder)/sqrt(100)
+
+
+set.seed(8)
+trainIndices = sample(seq(1:length(training_data$Age)),round(.7*length(training_data$Age)))
+trainEmployeeData = training_data[trainIndices,]
+testEmployeeData = training_data[-trainIndices,]
+model = naiveBayes(trainEmployeeData[,c("Age","JobRole","PercentSalaryHike")],factor(trainEmployeeData$Attrition, labels = c("No", "Yes")))
+CM = confusionMatrix(table(factor(testEmployeeData$Attrition, labels = c("No", "Yes")),predict(model,testEmployeeData[,c("Age","JobRole","PercentSalaryHike")])))
+CM
+
+set.seed(6)
+trainIndices = sample(seq(1:length(training_data$Age)),round(.7*length(training_data$Age)))
+trainEmployeeData = training_data[trainIndices,]
+testEmployeeData = training_data[-trainIndices,]
+model = naiveBayes(trainEmployeeData[,c("Age","JobRole","JobSatisfaction","PercentSalaryHike")],factor(trainEmployeeData$Attrition, labels = c("No", "Yes")))
+CM = confusionMatrix(table(factor(testEmployeeData$Attrition, labels = c("No", "Yes")),predict(model,testEmployeeData[,c("Age","JobRole","JobSatisfaction","PercentSalaryHike")])))
+CM
+
+
+
+AccHolder = numeric(100)
+SensHolder = numeric(100)
+SpecHolder = numeric(100)
+
+
+for (seed in 1:100)
+{
+
+set.seed(seed)
+trainIndices = sample(seq(1:length(training_data$Age)),round(.7*length(training_data$Age)))
+trainEmployeeData = training_data[trainIndices,]
+testEmployeeData = training_data[-trainIndices,]
+model = naiveBayes(trainEmployeeData[,c("Age","JobRole","PercentSalaryHike")],factor(trainEmployeeData$Attrition, labels = c("No", "Yes")))
+CM = confusionMatrix(table(factor(testEmployeeData$Attrition, labels = c("No", "Yes")),predict(model,testEmployeeData[,c("Age","JobRole","PercentSalaryHike")])))
+CM
+AccHolder[seed] = CM$overall[1]
+SensHolder[seed] = CM$byClass[1]
+SpecHolder[seed] = CM$byClass[2]
+
+}
+
+mean(AccHolder)
+#Standard Error of the Mean
+sd(AccHolder)/sqrt(100) 
+mean(SensHolder)
+#Standard Error of the Mean
+sd(SensHolder)/sqrt(100) 
+mean(SpecHolder)
+#Standard Error of the Mean
+sd(SensHolder)/sqrt(100)
+
+
+
+AccHolder = numeric(100)
+SensHolder = numeric(100)
+SpecHolder = numeric(100)
+
+
+for (seed in 1:100)
+{
+
+set.seed(seed)
+trainIndices = sample(seq(1:length(training_data$Age)),round(.7*length(training_data$Age)))
+trainEmployeeData = training_data[trainIndices,]
+testEmployeeData = training_data[-trainIndices,]
+model = naiveBayes(trainEmployeeData[,c("Age","JobRole","HourlyRate")],factor(trainEmployeeData$Attrition, labels = c("No", "Yes")))
+CM = confusionMatrix(table(factor(testEmployeeData$Attrition, labels = c("No", "Yes")),predict(model,testEmployeeData[,c("Age","JobRole","HourlyRate")])))
+AccHolder[seed] = CM$overall[1]
+SensHolder[seed] = CM$byClass[1]
+SpecHolder[seed] = CM$byClass[2]
+
+}
+
+
+mean(AccHolder)
+#Standard Error of the Mean
+sd(AccHolder)/sqrt(100) 
+mean(SensHolder)
+#Standard Error of the Mean
+sd(SensHolder)/sqrt(100) 
+mean(SpecHolder)
+#Standard Error of the Mean
+sd(SensHolder)/sqrt(100)
+
+set.seed(12)
+
+AccHolder = numeric(100)
+SensHolder = numeric(100)
+SpecHolder = numeric(100)
+
+
+for (seed in 1:1000)
+{
+
+set.seed(seed)
+trainIndices = sample(seq(1:length(training_data$Age)),round(.7*length(training_data$Age)))
+trainEmployeeData = training_data[trainIndices,]
+testEmployeeData = training_data[-trainIndices,]
+model = naiveBayes(trainEmployeeData[,c("Age","JobRole","JobSatisfaction","OverTime")],factor(trainEmployeeData$Attrition, labels = c("No", "Yes")))
+CM = confusionMatrix(table(factor(testEmployeeData$Attrition, labels = c("No", "Yes")),predict(model,testEmployeeData[,c("Age","JobRole","JobSatisfaction","OverTime")])))
+CM
+AccHolder[seed] = CM$overall[1]
+SensHolder[seed] = CM$byClass[1]
+SpecHolder[seed] = CM$byClass[2]
+
+}
+
+mean(AccHolder)
+#Standard Error of the Mean
+sd(AccHolder)/sqrt(100) 
+mean(SensHolder)
+#Standard Error of the Mean
+sd(SensHolder)/sqrt(100) 
+mean(SpecHolder)
+#Standard Error of the Mean
+sd(SensHolder)/sqrt(100)
+
+
+
+```
+
+##Best Bayes model included Age, JobRole, JobSatisfaction, and Overtime
+Accuracy of 85%, sensitiviy of .85 and specificity of .65
+
+```{r, include=TRUE}
+
+AccHolder = numeric(100)
+SensHolder = numeric(100)
+SpecHolder = numeric(100)
+
+for (seed in 1:100)
+{
+
+set.seed(seed)
+trainIndices = sample(seq(1:length(training_data$Age)),round(.7*length(training_data$Age)))
+trainEmployeeData = training_data[trainIndices,]
+testEmployeeData = training_data[-trainIndices,]
+model = naiveBayes(trainEmployeeData[,c("Age","JobRole","JobSatisfaction","OverTime")],factor(trainEmployeeData$Attrition, labels = c("No", "Yes")))
+CM = confusionMatrix(table(factor(testEmployeeData$Attrition, labels = c("No", "Yes")),predict(model,testEmployeeData[,c("Age","JobRole","JobSatisfaction","OverTime")])))
+CM
+AccHolder[seed] = CM$overall[1]
+SensHolder[seed] = CM$byClass[1]
+SpecHolder[seed] = CM$byClass[2]
+}
+
+mean(AccHolder)
+#Standard Error of the Mean
+sd(AccHolder)/sqrt(100) 
+mean(SensHolder)
+#Standard Error of the Mean
+sd(SensHolder)/sqrt(100) 
+mean(SpecHolder)
+#Standard Error of the Mean
+sd(SensHolder)/sqrt(100)
+
+```
+
+##Comparing against Knn Model
+```{r, include=TRUE}
+
+
+AccHolder = numeric(100)
+SensHolder = numeric(100)
+SpecHolder = numeric(100)
+
+cleanEmployeeData <- na.omit(training_data)
+
+splitPerc = .7
+iterations = 100
+numks = 60
+masterAcc = matrix(nrow = iterations, ncol = numks)
+  
+for(j in 1:iterations)
+{
+set.seed(i)
+accs = data.frame(accuracy = numeric(60), k = numeric(60))
+trainIndices = sample(1:dim(cleanEmployeeData)[1],round(splitPerc * dim(cleanEmployeeData)[1]))
+train = cleanEmployeeData[trainIndices,]
+test = cleanEmployeeData[-trainIndices,]
+for(i in 1:numks)
+{
+  classifications = knn(train[,c("JobSatisfaction","Age")],test[,c("JobSatisfaction","Age")],as.factor(train$Attrition), prob = TRUE, k = numks)
+  table(as.factor(test$Attrition),classifications)
+  CM = confusionMatrix(table(as.factor(test$Attrition),classifications))
+  masterAcc[j,i] = CM$overall[1]
+}
+
+}
+
+MeanAcc = colMeans(masterAcc)
+
+plot(seq(1,numks,1),MeanAcc, type = "l")
+which.max(MeanAcc)
+max(MeanAcc)
+
+
+AccHolder = numeric(100)
+SensHolder = numeric(100)
+SpecHolder = numeric(100)
+
+
+
+for(i in 1:iterations){
+  set.seed(i)
+  trainIndices = sample(1:dim(cleanEmployeeData)[1],round(splitPerc * dim(cleanEmployeeData)[1]))
+  train = cleanEmployeeData[trainIndices,]
+  test = cleanEmployeeData[-trainIndices,]
+  classifications = knn(train[,c("JobSatisfaction","Age")],test[,c("JobSatisfaction","Age")],as.factor(train$Attrition), prob = TRUE, k = 5)
+  table(as.factor(test$Attrition),classifications)
+  CM = confusionMatrix(table(as.factor(test$Attrition),classifications))
+  AccHolder[i] = CM$overall[1]
+  SensHolder[i] = CM$byClass[1]
+  SpecHolder[i] = CM$byClass[2]
+}
+
+
+mean(AccHolder)
+#Standard Error of the Mean
+sd(AccHolder)/sqrt(100) 
+mean(SensHolder)
+#Standard Error of the Mean
+sd(SensHolder)/sqrt(100) 
+mean(SpecHolder)
+#Standard Error of the Mean
+sd(SensHolder)/sqrt(100)
+
+
+
+```
+
+
+##Classifying Attrition for Test Data
+
+```{r, include=TRUE}
+
+model = naiveBayes(training_data[,c("Age","JobRole","JobSatisfaction","OverTime")],factor(training_data$Attrition, labels = c("No", "Yes")))
+test_attrition_data$Attrition = predict(model,test_attrition_data[,c("Age","JobRole","JobSatisfaction","OverTime")])
+attrition_output <- test_attrition_data %>% select(ID,Attrition)
+write.csv(attrition_output, file ="Case2PredictionsOlmosAttrition.csv", row.names = FALSE)
+
+```
+
+
+##EDA for imputing Monthly Income 
+
+So far highest correlatoin is between Total working years and monthly income
+Total working years has a .779 corr while years at company has .491 corr
+JobLevel has a corr of .952
+Age has a .485 correlation
+Years since last promotion has a .316 correlation
+
+
+```{r, include=TRUE}
+
+
+
+# return correlation matrix of numerical values
+training_data %>%
+    keep(is.numeric) %>%
+    tidyr::drop_na() %>%
+    cor %>%
+    corrplot("upper", addCoef.col = "white", number.digits = 2,
+             number.cex = 0.5, method="square",
+             order="hclust",
+             tl.srt=45, tl.cex = 0.8)
+
+
+training_data %>% select(HourlyRate, MonthlyRate,YearsInCurrentRole,TotalWorkingYears ,MonthlyIncome) %>% ggpairs()
+training_data %>% select(PercentSalaryHike ,MonthlyIncome) %>% ggpairs()
+training_data %>% select(YearsAtCompany ,MonthlyIncome) %>% ggpairs()
+training_data %>% select(TotalWorkingYears ,MonthlyIncome) %>% ggpairs()
+training_data %>% select(WorkLifeBalance ,MonthlyIncome) %>% ggpairs()
+training_data %>% select(HourlyRate ,MonthlyIncome) %>% ggpairs()
+training_data %>% select(JobLevel ,MonthlyIncome) %>% ggpairs()
+training_data %>% select(DailyRate ,MonthlyIncome) %>% ggpairs()
+training_data %>% select(Education ,MonthlyIncome) %>% ggpairs()
+training_data %>% select(BusinessTravel ,MonthlyIncome) %>% ggpairs()
+training_data %>% select(PercentSalaryHike ,MonthlyIncome) %>% ggpairs()
+training_data %>% select(YearsSinceLastPromotion ,MonthlyIncome) %>% ggpairs()
+training_data %>% select(JobRole ,MonthlyIncome) %>% ggpairs()
+training_data %>% select(Age ,MonthlyIncome) %>% ggpairs()
+training_data %>% select(StockOptionLevel ,MonthlyIncome) %>% ggpairs()
+training_data %>% select(YearsWithCurrManager ,MonthlyIncome) %>% ggpairs()
+training_data %>% select(NumCompaniesWorked ,MonthlyIncome) %>% ggpairs()
+training_data %>% select(OverTime ,MonthlyIncome) %>% ggpairs()
+training_data %>% select(StockOptionLevel ,MonthlyIncome) %>% ggpairs()
+training_data %>% select(DistanceFromHome,MonthlyIncome ) %>% ggpairs()
+
+```
+
+
+
+##First Model for computing Monthly Incomes
+First model using Joblevel and income has a rmse of 1410.878
+
+
+```{r, include=TRUE}
+training_data %>% ggplot(aes(x = JobLevel, y = MonthlyIncome)) + geom_point() + ggtitle("employeeData: JobLevel v. MonthlyIncome") + geom_smooth(method = "lm") 
+training_data %>% ggplot(aes(x = JobRole, y = MonthlyIncome)) + geom_point() + ggtitle("employeeData: JobLevel v. MonthlyIncome") + geom_smooth(method = "lm")
+
+fit = lm(MonthlyIncome~JobLevel, data = training_data)
+summary(fit)
+confint(fit)
+
+
+generate_train_indices <- function(data,test_ratio,seed= as.numeric(Sys.time())){
+    set.seed(seed)
+    result <- list();
+    trainInd = sample(seq(1,dim(data)[1],1),round(test_ratio*dim(data)[1]))
+    return(trainInd);
+}
+
+#fit model 1
+
+trainIndices = generate_train_indices(training_data,.7,4)
+trainEmployeeData = training_data[trainIndices,]
+testEmployeeData = training_data[-trainIndices,]
+
+summary(fit)
+Model1_Preds = predict(fit, newdata = testEmployeeData)
+MSPE = mean((testEmployeeData$MonthlyIncome - Model1_Preds)^2)
+sqrt(MSPE)
+
+
+```
+
+
+##2nd Model ading TotalWorkingYears
+
+Adding the totalworkingyears got a better error with 1365 
+
+
+```{r, include=TRUE}
+
+fit2 = lm(MonthlyIncome~JobLevel+TotalWorkingYears, data = training_data)
+summary(fit2)
+confint(fit2)
+
+
+generate_train_indices <- function(data,test_ratio,seed= as.numeric(Sys.time())){
+    set.seed(seed)
+    result <- list();
+    trainInd = sample(seq(1,dim(data)[1],1),round(test_ratio*dim(data)[1]))
+    return(trainInd);
+}
+
+#fit model 1
+
+trainIndices = generate_train_indices(training_data,.7,4)
+trainEmployeeData = training_data[trainIndices,]
+testEmployeeData = training_data[-trainIndices,]
+
+summary(fit2)
+Model2_Preds = predict(fit2, newdata = testEmployeeData)
+
+MSPE = mean((testEmployeeData$MonthlyIncome - Model2_Preds)^2)
+sqrt(MSPE)
+
+```
+##3rd Model adding age as well
+
+Found that adding the factors with most Correllations, that being JobLevel, Age, TotalWorkingYears gave the lowes RMSE of around 1200.
+
+
+```{r}
+
+fit3 = lm(MonthlyIncome~JobLevel+Age+TotalWorkingYears, data = training_data)
+summary(fit3)
+confint(fit3)
+
+generate_train_indices <- function(data,test_ratio,seed= as.numeric(Sys.time())){
+    set.seed(seed)
+    result <- list();
+    trainInd = sample(seq(1,dim(data)[1],1),round(test_ratio*dim(data)[1]))
+    return(trainInd);
+}
+
+trainIndices = generate_train_indices(training_data,.7,4)
+trainEmployeeData = training_data[trainIndices,]
+testEmployeeData = training_data[-trainIndices,]
+
+summary(fit3)
+Model3_Preds = predict(fit3, newdata = testEmployeeData)
+MSPE = mean((testEmployeeData$MonthlyIncome - Model3_Preds)^2)
+sqrt(MSPE)
+
+
+```
+
+##Imputing the values for Test Set
+
+```{r}
+
+
+finale_monthly_salary_model = lm(MonthlyIncome~JobLevel+Age+TotalWorkingYears, data = training_data)
+test_salary_data$MonthlyIncome = predict(finale_monthly_salary_model, newdata = test_salary_data)
+
+finalSalaryOutput <- test_salary_data %>% select(ID,MonthlyIncome)
+
+write.csv(finalSalaryOutput, file ="Case2PredictionsOlmosSalary.csv", row.names = FALSE)
+
+
+```
+
+
+
+
