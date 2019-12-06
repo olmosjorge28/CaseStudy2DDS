@@ -20,6 +20,12 @@ library(modelr)
 library(GGally)
 library(corrplot)
 library(readxl)
+library(ggthemes)
+
+theme <- theme_solarized_2(light=FALSE) + scale_colour_solarized('blue')
+
+
+theme_set(theme_excel())
 
 ```
 
@@ -123,7 +129,7 @@ There seems to be a quadratic trend, there's a high level of attriction in late 
 
 ```{r, include=TRUE}
 grouped_by_age <- training_data %>% count(Age,Attrition)
-spread(grouped_by_age, Attrition, n)  %>% mutate(sum = No+Yes) %>% mutate(attrition_pct = Yes/sum) %>% ggplot(aes(x = Age, y = attrition_pct)) + geom_point()
+spread(grouped_by_age, Attrition, n)  %>% mutate(sum = No+Yes) %>% mutate(attrition_pct = Yes/sum) %>% ggplot(aes(x = Age, y = attrition_pct)) + geom_point() +  geom_smooth(method = "loess") + labs(title = "Attrition vs. Age", x = "Age", y ="Attrition") 
 
 ```
 
@@ -136,7 +142,7 @@ Seems to be a very strong correlation between JobSatisfaction and attrition rate
 
 ```{r, include=TRUE}
 group_by_jobSatisfaction <- training_data %>% count(JobSatisfaction,Attrition)
-spread(group_by_jobSatisfaction, Attrition, n)  %>% mutate(sum = No+Yes) %>% mutate(attrition_pct = Yes/sum) %>% ggplot(aes(x = JobSatisfaction, y = attrition_pct)) + geom_point()
+spread(group_by_jobSatisfaction, Attrition, n)  %>% mutate(sum = No+Yes) %>% mutate(attrition_pct = Yes/sum) %>% ggplot(aes(x = JobSatisfaction, y = attrition_pct)) +  geom_point()   + labs(title = "Job Satisfaction vs. Attrition", x = "Job Satisfaction", y ="Attrition") 
 ```
 
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
@@ -190,9 +196,18 @@ Working overtime appears to have a significant impact on attrition rate
 
 ```{r, include=TRUE}
 group_by_OverTime<- training_data %>% count(OverTime,Attrition)
-spread(group_by_OverTime, Attrition, n)  %>% mutate(sum = No+Yes) %>% mutate(attrition_pct = Yes/sum) %>% ggplot(aes(OverTime,attrition_pct)) + geom_col()
+spread(group_by_OverTime, Attrition, n)  %>% mutate(sum = No+Yes) %>% mutate(attrition_pct = Yes/sum) %>% ggplot(aes(OverTime,attrition_pct)) + geom_col() + labs(title="Percentage of attrition by employess who take Over Time", x = "Over Time", y = "Attrition")
 ```
 
+
+##Attrition by Monthly Income
+
+```{r, include=TRUE}
+
+group_by_MonthlyIncome<- na.omit(training_data) %>% count(MonthlyIncome,Attrition)
+spread(group_by_MonthlyIncome, Attrition, n)  %>% mutate(sum = No+Yes) %>% mutate(attrition_pct = Yes/sum) %>% ggplot(aes(x = MonthlyIncome, y = attrition_pct)) + geom_point()
+
+```
 
 ##Choosing to test Bayes models with factor that had the most impact on attrtion Age, Job Satisfaction, Totalworkinyears, Job Role, and Hourly Rate
 
@@ -661,6 +676,27 @@ summary(fit3)
 Model3_Preds = predict(fit3, newdata = testEmployeeData)
 MSPE = mean((testEmployeeData$MonthlyIncome - Model3_Preds)^2)
 sqrt(MSPE)
+
+
+
+
+
+
+
+training_data %>% select(MonthlyIncome, JobLevel,Age,TotalWorkingYears ) %>% ggpairs(aes(color = JobLevel))
+
+training_data %>% select(MonthlyIncome, JobLevel,Age,TotalWorkingYears ) %>% geom_point()
+
+training_data %>% select(MonthlyIncome, JobLevel,Age,TotalWorkingYears)  %>% ggplot(aes(x = Age, y = MonthlyIncome, color = JobLevel)) + geom_point() 
+
+training_data %>% select(MonthlyIncome, JobLevel,Age,TotalWorkingYears ,TotalWorkingYears)  %>% ggplot(aes(x = TotalWorkingYears, y = MonthlyIncome, color = JobLevel)) + geom_point() 
+
+
+
+
+
+
+
 
 
 ```
