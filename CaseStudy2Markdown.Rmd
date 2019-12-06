@@ -22,8 +22,6 @@ library(corrplot)
 library(readxl)
 library(ggthemes)
 
-theme <- theme_solarized_2(light=FALSE) + scale_colour_solarized('blue')
-
 
 theme_set(theme_excel())
 
@@ -33,6 +31,8 @@ theme_set(theme_excel())
 
 As a company that specializes in Talent Management we have been assigned in Identifying the top tree factors that lead to employee Attrition/Turnover.
 Additionally we have been tasked with creating a model that predicts Attrition as well as model that predicts Monthly Income for the corporations employees.
+
+Youtube: https://youtu.be/k0ob1JmyLf4
 
 
 #Reading and tidying datasets
@@ -167,7 +167,7 @@ Sales representative appear to have a much higher attrition rate
 
 ```{r, include=TRUE}
 group_by_job_role <- training_data %>% count(JobRole,Attrition)
-spread(group_by_job_role, Attrition, n)  %>% mutate(sum = No+Yes) %>% mutate(attrition_pct = Yes/sum) %>% ggplot(aes(JobRole,attrition_pct)) + geom_col()
+spread(group_by_job_role, Attrition, n)  %>% mutate(sum = No+Yes) %>% mutate(attrition_pct = Yes/sum) %>% ggplot(aes(JobRole,attrition_pct)) + geom_col() + coord_flip() + labs(x="Job Role", y = "Attrition", title = "Attrition by Job Role")
 ```
 
 
@@ -382,7 +382,7 @@ SensHolder = numeric(100)
 SpecHolder = numeric(100)
 
 
-for (seed in 1:1000)
+for (seed in 1:100)
 {
 
 set.seed(seed)
@@ -449,9 +449,8 @@ sd(SensHolder)/sqrt(100)
 ```
 
 ##Comparing against Knn Model
+
 ```{r, include=TRUE}
-
-
 AccHolder = numeric(100)
 SensHolder = numeric(100)
 SpecHolder = numeric(100)
@@ -463,7 +462,7 @@ iterations = 100
 numks = 60
 masterAcc = matrix(nrow = iterations, ncol = numks)
   
-for(j in 1:iterations)
+for(i in 1:iterations)
 {
 set.seed(i)
 accs = data.frame(accuracy = numeric(60), k = numeric(60))
@@ -475,14 +474,11 @@ for(i in 1:numks)
   classifications = knn(train[,c("JobSatisfaction","Age")],test[,c("JobSatisfaction","Age")],as.factor(train$Attrition), prob = TRUE, k = numks)
   table(as.factor(test$Attrition),classifications)
   CM = confusionMatrix(table(as.factor(test$Attrition),classifications))
-  masterAcc[j,i] = CM$overall[1]
 }
 
 }
 
 MeanAcc = colMeans(masterAcc)
-
-plot(seq(1,numks,1),MeanAcc, type = "l")
 which.max(MeanAcc)
 max(MeanAcc)
 
@@ -516,9 +512,6 @@ sd(SensHolder)/sqrt(100)
 mean(SpecHolder)
 #Standard Error of the Mean
 sd(SensHolder)/sqrt(100)
-
-
-
 ```
 
 
@@ -588,7 +581,7 @@ First model using Joblevel and income has a rmse of 1410.878
 
 
 ```{r, include=TRUE}
-training_data %>% ggplot(aes(x = JobLevel, y = MonthlyIncome)) + geom_point() + ggtitle("employeeData: JobLevel v. MonthlyIncome") + geom_smooth(method = "lm") 
+training_data %>% ggplot(aes(x = JobLevel, y = MonthlyIncome)) + geom_point() + ggtitle( "JobLevel v. MonthlyIncome") + geom_smooth(method = "lm") 
 training_data %>% ggplot(aes(x = JobRole, y = MonthlyIncome)) + geom_point() + ggtitle("employeeData: JobLevel v. MonthlyIncome") + geom_smooth(method = "lm")
 
 fit = lm(MonthlyIncome~JobLevel, data = training_data)
@@ -676,22 +669,6 @@ summary(fit3)
 Model3_Preds = predict(fit3, newdata = testEmployeeData)
 MSPE = mean((testEmployeeData$MonthlyIncome - Model3_Preds)^2)
 sqrt(MSPE)
-
-
-
-
-
-
-
-training_data %>% select(MonthlyIncome, JobLevel,Age,TotalWorkingYears ) %>% ggpairs(aes(color = JobLevel))
-
-training_data %>% select(MonthlyIncome, JobLevel,Age,TotalWorkingYears ) %>% geom_point()
-
-training_data %>% select(MonthlyIncome, JobLevel,Age,TotalWorkingYears)  %>% ggplot(aes(x = Age, y = MonthlyIncome, color = JobLevel)) + geom_point() 
-
-training_data %>% select(MonthlyIncome, JobLevel,Age,TotalWorkingYears ,TotalWorkingYears)  %>% ggplot(aes(x = TotalWorkingYears, y = MonthlyIncome, color = JobLevel)) + geom_point() 
-
-
 
 
 
